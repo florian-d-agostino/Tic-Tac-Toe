@@ -1,10 +1,16 @@
 import pygame
+import random
 
 
+# ----------------------------------------------------------------------------------------------------------------------#
+#                                                   VARIABLES                                                           #
+# ----------------------------------------------------------------------------------------------------------------------#
 
 # --- Initialisation ---
 pygame.init()
 
+# --- Clock ---
+clock = pygame.time.Clock()
 
 # --- fenêtre ---
 screen = pygame.display.set_mode((600, 600))
@@ -14,11 +20,9 @@ screen = pygame.display.set_mode((600, 600))
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 BLUE = (0, 101, 181, 255)
-
-# --- Paramètres ---
 line_width = 10
 
-# --- Taille des Font X / O ---
+# --- Police ---
 font = pygame.font.SysFont(None, 120) 
 
 
@@ -47,10 +51,12 @@ board = [
     ["", "", ""],
     ["", "", ""]
 ]
+
 player = "X"
+# --- IA D'ORIGINE ---
+difficulty = "easy"
 
-#       ~~~~~~~~ FONCTION DE STYLE  - avec IA ~~~~~~~
-
+# --- Style texte --- (IA)
 def draw_text_outline(text, font, color, outline_color, x, y, outline_size=2):
     # --- Calques du contour ---
     for ox in (-outline_size, 0, outline_size):
@@ -65,29 +71,29 @@ def draw_text_outline(text, font, color, outline_color, x, y, outline_size=2):
 
 
 
-
-#       ~~~~~~~~ FONCTION MECANIQUE ~~~~~~~~
-
+# ----------------------------------------------------------------------------------------------------------------------#
+#                                                  FONCTION MECANIQUE                                                   #
+# ----------------------------------------------------------------------------------------------------------------------#
 
 
 # --- Menu ---
-
 def main_menu():
-    
 
     # --- Font ---
     font_title = pygame.font.SysFont(None, 50)
     font_button = pygame.font.SysFont(None, 36)
+
     # --- Texte Boutons ---
     buttons = [ 
         ("Joueur VS Joueur", "pvp"),
         ("Joueur VS IA", "pvai"),
-        ("Difficulté IA", "difficulty"),
+        ("Difficulté IA", "choose_difficulty"),
         ("Quitter", "quit")
     ]
     buttons_width = 260
     buttons_height = 55
     spacing = 20
+    
     # --- Centrage bouttons --- ( IA )
     total_height = len(buttons) * buttons_height + (len(buttons) - 1) * spacing
     start_y = (600 - total_height) // 2
@@ -108,8 +114,6 @@ def main_menu():
         text_rect = text_surf.get_rect(center=rect.center)
         screen.blit(text_surf, text_rect)
 
-
-
      # --- Boucle Menu & Clic Souris  ----   ( IA )
     while True:
         mouse_pos = pygame.mouse.get_pos()
@@ -120,6 +124,7 @@ def main_menu():
                 exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clic = True
+                
         screen.blit(background, (0, 0))
 
         for rect, action, text in buttons_rects:
@@ -133,8 +138,102 @@ def main_menu():
                 return action
         pygame.display.flip()
 
+# --- IA ---
+def ordinateur(board, signe, difficulty):
 
-# --- Menu difficulté ---
+    if difficulty == "easy":
+        return ia_easy(board, signe)
+    elif difficulty == "medium":
+        return ia_medium(board, signe)
+    elif difficulty == "hard":
+        return ia_hard(board, signe)
+
+def ia_easy(board, signe):
+    free_list=[]
+    for i in range(3):
+        for n in range(3):
+            if board[i][n] == "":
+                free_list.append((i, n))
+    return random.choice(free_list)
+
+def check_win(board, signe, i, n):
+    board[i][n] = signe
+    result = win(board)
+    board[i][n] = ""
+    return result
+
+def ia_medium(board, ia_signe, player_s):
+    for i in range(3):
+        for n in range(3):
+            if board[i][n] == "":
+                if check_win(board, ia_signe, i, n):
+                    return(i, n)
+                
+    for i in range(3):
+        for n in range(3):
+            if board[i][n] == "":
+                if check_win(board, player_s, i, n):
+                    return(i, n)
+            
+    free = [(i, n)
+            for i in range(3)
+            for n in range(3)
+            if board[i][n] == ""]
+    return random.choice(free)
+
+
+def minimax(board, depth, maximizing, ia_signe, player_s):
+    result = win(board)
+
+    # Si la partie est finie -> renvoi du score
+    if result == ia_signe:
+        return 1
+    if result == player_s:
+        return -1
+
+    # Si plus de cases -> match nul
+    if all(board[i][n] != "" for i in range(3) for n in range(3)):
+        return 0
+
+    if maximizing:
+        best_score = -999
+        for i in range(3):
+            for n in range(3):
+                if board[i][n] == "":
+                    board[i][n] = ia_signe
+                    score = minimax(board, depth + 1, False, ia_signe, player_s)
+                    board[i][n] = ""
+                    best_score = max(best_score, score)
+        return best_score
+
+    else:  # minimizing
+        best_score = 999
+        for i in range(3):
+            for n in range(3):
+                if board[i][n] == "":
+                    board[i][n] = player_s
+                    score = minimax(board, depth + 1, True, ia_signe, player_s)
+                    board[i][n] = ""
+                    best_score = min(best_score, score)
+        return best_score
+
+
+def ia_hard(board, ia_signe, player_s):
+    best_score = -999
+    best_move = None
+
+    for i in range(3):
+        for n in range(3):
+            if board[i][n] == "":
+                board[i][n] = ia_signe
+                score = minimax(board, 0, False, ia_signe, player_s)
+                board[i][n] = ""
+
+                if score > best_score:
+                    best_score = score
+                    best_move = (i, n)
+
+    return best_move
 
 def difficulty_menu():
 
@@ -194,9 +293,9 @@ def difficulty_menu():
                 return action
             
         pygame.display.flip()
-            
 
-# --- Reset du plateau ---             
+
+# --- Jeu ---          
 def reset_board():
     global board, player
     board = [
@@ -205,10 +304,6 @@ def reset_board():
     ["", "", ""]]
     player = "X"
 
-
-
-
-# --- Dessin joueurs plateau ---
 def draw(i, j , player):
     x = board_x + j * cells
     y = board_y + i * cells
@@ -219,10 +314,6 @@ def draw(i, j , player):
     elif player == "O":
         screen.blit(demon, (x, y))
 
-
-
-
-# --- GRILLE  Visuelle 3x3 ----
 def grid():
     # --- Lignes Vertivales ---
     pygame.draw.line(screen, BLACK, (board_x + cells, board_y),(board_x + cells, board_y + board_game), line_width)
@@ -231,10 +322,6 @@ def grid():
     pygame.draw.line(screen, BLACK,(board_x, board_y + cells), (board_x + board_game, board_y + cells), line_width)
     pygame.draw.line(screen, BLACK,(board_x, board_y + cells*2), (board_x + board_game, board_y + cells*2), line_width)
 
-
-
-
-# --- Verification Victoire ---
 def win():
     # --- Verif. lignes ---
     for i in range(3):
@@ -252,9 +339,18 @@ def win():
           return True
     return False
 
+def tie():
+    for i in board:
+        if "" in i:
+            return False
+    return True
 
+def already_played():
+    for i in range(3):
+        for j in range(3):
+            if board[i][j] != "":
+                draw(i, j, board[i][j])
 
-# --- Fin de partie ---
 def end_game(message):
     # --- Format Texte ---
     x = window_size // 3
@@ -277,70 +373,129 @@ def end_game(message):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 wait = False
 
-
-
-
- # --- Clic souris ---
 def clic_mouse(event):
     global player
-    
+
+    # --- Position souris ---
     x, y = event.pos
     i = (y - board_y) // cells
     j = (x - board_x) // cells   
+    print("A cliqué sur ", i ,j)
 
-    
-    print("Clique sur case : ", i ,j)
+   
 
     # -- Verification si clic plateau ---
     if 0 <= i < 3 and 0 <= j < 3:
+        
+        # --- déjà joué ---
+        if board[i][j] != "":
+            print("Coup déjà joué")
+            return  
+        
 
-        board[i][j] = player
-        draw(i, j, player)
-            
+
+         # --- Change de joueur ---
+        player = "X" if player == "O" else "O"
+
+        
+    if mode == "pvai":
+        i2, j2 = ordinateur(board, player, difficulty)
+        board[i2][j2] = player
+        draw(i2, j2, player)
+
+    
+
+        # --- Victoire ---
         if win():
             end_game(f"{player} a gagné !")
             reset_board()
             main_menu()
             return
-
-        # --- Change de joueur ---
+        
+        # --- Match Nul ---
+        if tie():
+            end_game("Match nul !")
+            reset_board()
+            main_menu()
+            return
+     # --- Change de joueur ---
         player = "X" if player == "O" else "O"
+        
+# --- Mode Jeu ---
+def pvp():
+    global player, board
 
+    running = True
 
+    while running:
+        for event in pygame.event.get():
 
-# --- Clock ---
-clock = pygame.time.Clock()
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
 
-# ••••••••••••••••••••••••••••••••••••••••••••••••••
-# ------------_____ Boucle jeu _____--------------
-# ••••••••••••••••••••••••••••••••••••••••••••••••••
-mode = None
-# -Correction Erreur menu boucle OK-
-while mode not in("pvp", "pvai"):
-    mode = main_menu()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                i = (y - board_y) // cells
+                j = (x - board_x) // cells   
 
-    if mode == "difficulty":
-        difficulty = difficulty_menu()
-        print("Difficulté Choisie : ", difficulty)
+                # case hors plateau
+                if i < 0 or i > 2 or j < 0 or j > 2:
+                    continue
 
-    if difficulty == "back":
-        mode = None
-    else:
-        print("Difficulté choisie :", difficulty)
-        mode = None
+                # --- case déjà prise ---
+                if board[i][j] != "":
+                    print("Coup déjà joué")
+                    continue
+              
+                # --- jouer le coup ---
+                board[i][j] = player
+                draw(i, j, player)
+
+                # changer de joueur
+                player = "X" if player == "O" else "O"
+
+        # --- Verification ---
+        if win():
+            end_game(f"{player} a gagné !")
+            reset_board()
+            return       
+
+        if tie():
+            end_game("Match nul !")
+            reset_board()
+            return 
+        pygame.display.flip()
+
+def pvai():
+    return
+
+# ----------------------------------------------------------------------------------------------------------------------#
+#                                                   BOUCLE MENU                                                         #
+# ----------------------------------------------------------------------------------------------------------------------#
 
 # --- Choix Menu ---
-if mode == "quit":
-    pygame.quit()
-    exit()
-if mode == "pvp":
-    print("Lancement du mode Joueur VS Joueur")
-if mode == "pvai":
-    print("Lancement du mode Joueur VS IA")
-    # A activer plus tard
+mode = None
+while True:
+
+    mode = main_menu()
+
+    if mode == "pvp":
+        pvp()
+        continue
+
+    if mode == "pvai":
+        pvai()
+        continue
+    if mode == "quit":
+        pygame.quit()
+        exit()
+        break
 
 
-
+# ----------------------------------------------------------------------------------------------------------------------#
+#                                                   BOUCLE JEU                                                          #
+# ----------------------------------------------------------------------------------------------------------------------#
 
 # --- Boucle ---
 running = True
@@ -365,15 +520,10 @@ while running:
     grid()
 
     # Affichage des X / O déjà joués
-    for i in range(3):
-        for j in range(3):
-            if board[i][j] != "":
-                draw(i, j, board[i][j])
+    already_played()
 
     # --- Mise à jour écran + 60 fps ---
     pygame.display.flip()
-    clock.tick(60)
-
-
+    clock.tick(10)
 
 pygame.quit()
